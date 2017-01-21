@@ -95,12 +95,12 @@ struct {
 
 void stepper_enable()
 {
-    PORTB |= _BV(0);
+    PORTB &= ~_BV(0);
 }
 
 void stepper_disable()
 {
-    PORTB &= ~_BV(0);
+    PORTB |= _BV(0);
 }
 
 inline void setup()

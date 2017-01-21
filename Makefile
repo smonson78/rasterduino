@@ -1,11 +1,9 @@
-MCPU=atmega328
+MCPU=atmega328p
 PROGTYPE=arduino
-PROGPORT=/dev/ttyACM0
+PROGPORT=/dev/ttyUSB0
 PROG_FLAGS=-b 57600
 LFUSE=0xE6
 HFUSE=0xDF
-
-#AVRDUDE=avrdude -p $(MCPU) -c $(PROGTYPE) -P $(PROGPORT) -B 2
 AVRDUDE=avrdude -p $(MCPU) -c $(PROGTYPE) -P $(PROGPORT) $(PROG_FLAGS)
 
 CC=avr-gcc
