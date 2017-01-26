@@ -28,13 +28,17 @@ uint8_t scanline[MAX_BUF];
 // Digital 10 (Limit Y Axis) is PB2
 
 volatile struct {
-    uint8_t from_table;
+    enum {
+        MOVE_NORMAL, MOVE_FROM_TABLE, MOVE_RASTER
+    } mode;
+    
     uint8_t reverse;
 	uint16_t steps;
 	uint16_t total_steps;
 
+    // the ratio steps:total_steps matches x:pixels (where scanline[x] is PWM value)
+    uint16_t pixels;
 } move_cmd;
-
 
 void delay(int time)
 {
@@ -45,45 +49,13 @@ void delay(int time)
 	}
 }
 
-inline void timer1_init()
-{
-    // Set mode
-	//TCCR1A = 0; // Normal mode
-	//TCCR1B = 0; // Normal mode
-
-	TCCR1A = 0; // Mode 4
-	TCCR1B = _BV(WGM12); // Mode 4: Clear timer on compare (OCR1A)
-
-	// Enable compare match interrupt
-	TIMSK1 |= _BV(OCIE1A) | _BV(OCIE1B); // TIMER1_COMPA & TIMER1_COMPB
-}
-
-inline void timer1_start()
-{
-	// Restart from 0
-	TCNT1 = 0;
-
-	/* Set prescaler to start timer */
-	//TCCR1B |= _BV(CS10); // No prescaling
-	//TCCR1B |= _BV(CS11); // Clock/8
-	//TCCR1B |= _BV(CS10) | _BV(CS11); // Clock/64
-	//TCCR1B |= _BV(CS10) | _BV(CS12); // Clock/1024
-	TCCR1B |= _BV(CS11); // Clock/8
-}
-
-inline void timer1_stop()
-{
-	/* Unset prescaler to stop timer */
-	TCCR1B &= 0b11111000;
-}
-
 volatile uint8_t running = 0;
 ISR(TIMER1_COMPA_vect)
 {
 	// X axis step pulse stop
 	PORTD &= ~_BV(PORTD2);
 	
-    if (move_cmd.from_table)
+    if (move_cmd.mode == MOVE_FROM_TABLE)
     {
         if (move_cmd.reverse)
         {
@@ -163,7 +135,7 @@ inline void setup()
 /* A flat move with no lasering */
 void flat_move(uint16_t rate, uint16_t steps)
 {
-    move_cmd.from_table = 0;
+    move_cmd.mode = MOVE_NORMAL;
     move_cmd.steps = 0;
     move_cmd.total_steps = steps;
 	OCR1A = rate;
@@ -200,7 +172,7 @@ void accel(uint16_t rate, uint8_t reverse, uint16_t pad_steps)
 	}
 
     // Prepare move_cmd for accelerated move
-    move_cmd.from_table = 1;
+    move_cmd.mode = MOVE_FROM_TABLE;
     if (!reverse)
     {
         move_cmd.reverse = 0;

@@ -17,7 +17,7 @@ TARGET=raster
 $(TARGET).hex: $(TARGET).elf
 	avr-objcopy -j .text -j .data -O ihex $^ $@
 
-$(TARGET).elf: main.o serial.o lookup.o
+$(TARGET).elf: main.o serial.o lookup.o timer1.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 makelookup: makelookup.c -lm
