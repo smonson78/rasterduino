@@ -16,9 +16,10 @@ inline void timer1_init()
 	// Enable selected interrupts
 	TIMSK1 |= 0
 #if defined TIMER1_ENABLE_INT_OCR1A
-                |_BV(OCIE1A)
-#elif defined TIMER1_ENABLE_INT_OCR1B
-                |_BV(OCIE1B)
+                | _BV(OCIE1A)
+#endif
+#if defined TIMER1_ENABLE_INT_OCR1B
+                | _BV(OCIE1B)
 #endif
                 ;
 }
@@ -42,7 +43,7 @@ inline void timer1_start()
 
 inline void timer1_stop()
 {
-	/* Unset prescaler to stop timer */
-	TCCR1B &= 0b11111000;
+	/* Unset prescaler bits to stop timer */
+	TCCR1B &= ~(_BV(CS10) | _BV(CS11) | _BV(CS12));
 }
 

@@ -6,6 +6,8 @@
 #include <stdint.h>
 
 #include "serial.h"
+#include "timer1.h"
+#include "timer2.h"
 
 #define MAX_BUF 1024
 
@@ -33,21 +35,24 @@ volatile struct {
     } mode;
     
     uint8_t reverse;
-	uint16_t steps;
+    uint16_t steps;
 	uint16_t total_steps;
 
     // the ratio steps:total_steps matches x:pixels (where scanline[x] is PWM value)
     uint16_t pixels;
+    
+    uint16_t y_steps;
 } move_cmd;
 
 void delay(int time)
 {
-	while (time--)
-	{
-		/* 1msec delay */
-		_delay_loop_2(F_CPU / 4000);
-	}
+       while (time--)
+       {
+               /* 1msec delay */
+               _delay_loop_2(F_CPU / 4000);
+       }
 }
+
 
 volatile uint8_t running = 0;
 ISR(TIMER1_COMPA_vect)
@@ -119,8 +124,8 @@ void stepper_disable()
 inline void setup()
 {
     timer1_init();
+    //timer2_init();
 	//serial_init();
-
 
     // ------ output pins -------
     // Stepper enable (PB0) + Laser enable (PB3)
@@ -215,20 +220,48 @@ inline void test()
     sei();
 
 	uint16_t velocity = 300;
-
-	while (1)
+    uint16_t steps_per_line = 8;
+    uint16_t lines = 5;
+    
+    // Positive Y direction
+    PORTD |= _BV(PORTD6);
+    
+	while (lines-- > 0)
 	{
 		    // Set direction to 1 (rightwards)
 		    PORTD |= _BV(PORTD5);
         	accel(velocity, 0, 1000); // speed up
         	flat_move(velocity, 2048);
         	accel(velocity, 1, 1000); // slow down
-
+#if 1
+        	// step Y+
+        	uint8_t y_steps = steps_per_line;
+        	while (y_steps-- > 0)
+        	{
+        	    // FIXME: maybe too fast
+            	PORTD |= _BV(PORTD3);
+            	delay(1);
+                PORTD &= ~_BV(PORTD3);        	    
+            	delay(1);
+        	}
+#endif
 		    // Set direction to 0 (leftwards)
 		    PORTD &= ~_BV(PORTD5);
         	accel(velocity, 0, 1000); // speed up
             flat_move(velocity, 2048);
         	accel(velocity, 1, 1000); // slow down
+#if 1
+        	// step Y+
+        	y_steps = steps_per_line;
+        	while (y_steps-- > 0)
+        	{
+        	    // FIXME: maybe too fast
+            	PORTD |= _BV(PORTD3);
+            	delay(1);
+                PORTD &= ~_BV(PORTD3);        	    
+            	delay(1);
+        	}
+#endif
 
 	}
     cli();
