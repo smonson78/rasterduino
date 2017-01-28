@@ -11,7 +11,6 @@
 
 #define MAX_BUF 1024
 
-
 #define LOOKUP _binary_lookup_bin_start
 #define LOOKUP_END _binary_lookup_bin_end
 
@@ -89,7 +88,7 @@ ISR(TIMER1_COMPA_vect)
 
         return;
     }
-
+    
     // Not reading from acceleration lookup table:
 	if (++move_cmd.steps == move_cmd.total_steps)
 	{
@@ -97,6 +96,11 @@ ISR(TIMER1_COMPA_vect)
 	    running = 0;
 		return;
 	}
+
+    if (move_cmd.mode == MOVE_RASTER)
+    {
+        // Adjust PWM
+    }
 }
 
 ISR(TIMER1_COMPB_vect)
@@ -124,7 +128,7 @@ void stepper_disable()
 inline void setup()
 {
     timer1_init();
-    //timer2_init();
+    timer2_init();
 	//serial_init();
 
     // ------ output pins -------
@@ -151,6 +155,37 @@ void flat_move(uint16_t rate, uint16_t steps)
 	{
 	}
 }
+/* A flat move WITH lasering */
+void raster_move(uint16_t rate, uint16_t steps)
+{
+    move_cmd.mode = MOVE_RASTER;
+    move_cmd.steps = 0;
+    move_cmd.total_steps = steps;
+	OCR1A = rate;
+    OCR1B = rate - 10;
+    
+    // setup for pwm
+    OCR2A = 255;
+    
+    running = 1;
+
+	// enable timer2 OC2A pin
+	TCCR2A |= _BV(COM2A1);
+
+
+    timer1_start();
+    timer2_start();
+    
+	while(running)
+	{
+	}
+	
+	timer2_stop();
+	// disable timer2 OC2A pin
+	TCCR2A &= ~(_BV(COM2A1) | _BV(COM2A0));
+	PORTB &= ~_BV(PORTB3);
+}
+
 
 // accelerate from stopped up to step rate, then pad to a number of steps
 // OR in reverse, pad to the number of steps then slow down at the end.
@@ -231,7 +266,7 @@ inline void test()
 		    // Set direction to 1 (rightwards)
 		    PORTD |= _BV(PORTD5);
         	accel(velocity, 0, 1000); // speed up
-        	flat_move(velocity, 2048);
+        	raster_move(velocity, 1024);
         	accel(velocity, 1, 1000); // slow down
 #if 1
         	// step Y+
@@ -248,7 +283,7 @@ inline void test()
 		    // Set direction to 0 (leftwards)
 		    PORTD &= ~_BV(PORTD5);
         	accel(velocity, 0, 1000); // speed up
-            flat_move(velocity, 2048);
+            raster_move(velocity, 1024);
         	accel(velocity, 1, 1000); // slow down
 #if 1
         	// step Y+

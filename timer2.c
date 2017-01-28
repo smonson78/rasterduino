@@ -11,10 +11,9 @@ inline void timer2_init()
         // Non-Inverting Fast PWM Mode
 	TCCR2A = _BV(WGM20) | _BV(WGM21)
 #if defined TIMER2_ENABLE_OC2A
-                | _BV(COM2A1)
-#endif
-#if defined TIMER2_ENABLE_OC2A_INVERTED
-                | _BV(COM2A1) | _BV(COM2A0)
+//                | _BV(COM2A1)
+#elif defined TIMER2_ENABLE_OC2A_INVERTED
+//                | _BV(COM2A1) | _BV(COM2A0)
 #endif
                 ;
 	//TCCR2B = 0;
@@ -41,7 +40,7 @@ inline void timer2_start()
 #elif defined TIMER2_CLK_DIV_32
 	TCCR2B |= _BV(CS20) | _BV(CS21);
 #elif defined TIMER2_CLK_DIV_64
-	TCCR2B |= _BV(CS22);
+	TCCR2B |= _BV(2); // FIXME: test. Was it CS20 or CA20? datasheet is a bit dodgy
 #elif defined TIMER2_CLK_DIV_128
 	TCCR2B |= _BV(CS22) | _BV(CS20);
 #elif defined TIMER2_CLK_DIV_256

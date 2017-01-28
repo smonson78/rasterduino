@@ -4,7 +4,7 @@
 #include <avr/io.h>
 
 //#define TIMER2_MODE0
-#define TIMER2_MODE4 // Clear Timer on Compare OCR2A
+#define TIMER2_MODE3 // FAST PWM
 
 // Enable interrupts
 //#define TIMER2_ENABLE_INT_OCR2
