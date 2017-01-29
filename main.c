@@ -46,13 +46,12 @@ volatile struct {
 
 void delay(int time)
 {
-       while (time--)
-       {
-               /* 1msec delay */
-               _delay_loop_2(F_CPU / 4000);
-       }
+   while (time--)
+   {
+       /* 1msec delay */
+       _delay_loop_2(F_CPU / 4000);
+   }
 }
-
 
 volatile uint8_t running = 0;
 ISR(TIMER1_COMPA_vect)
@@ -125,7 +124,7 @@ inline void setup()
 {
     timer1_init();
     timer2_init();
-	//serial_init();
+	serial_init();
 
     // ------ output pins -------
     // Stepper enable (PB0) + Laser enable (PB3)
@@ -291,10 +290,15 @@ inline void test()
     // Time to settle
     delay(100);
     
-	//serial_transmit('$');
-	//serial_transmit('$');
-	//serial_transmit('\r');
-	//serial_transmit('\n');
+	serial_send("$ rasterduino 0\r\n");
+	
+	// echo everything back
+	while (1)
+	{
+	    uint8_t data = serial_receive();
+	    serial_sendchar(data);
+	    delay(200);
+	}
 
     // Enable stepper motors
     stepper_enable();
