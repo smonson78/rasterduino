@@ -6,7 +6,7 @@
 #define RXBUFFER 64
 #define TXBUFFER 16
 
-#define FBAUD 115200
+#define FBAUD 57600
 
 extern volatile uint8_t rx_buffer[RXBUFFER];
 extern volatile uint8_t tx_buffer[TXBUFFER];
