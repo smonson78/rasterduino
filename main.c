@@ -35,7 +35,7 @@ volatile struct {
     
     uint8_t reverse;
     uint16_t steps;
-	uint16_t total_steps;
+    uint16_t total_steps;
 
     // the ratio steps:total_steps matches x:pixels (where scanline[x] is PWM value)
     uint16_t pixels;
@@ -56,9 +56,9 @@ void delay(int time)
 volatile uint8_t running = 0;
 ISR(TIMER1_COMPA_vect)
 {
-	// X axis step pulse stop
-	PORTD &= ~_BV(PORTD2);
-	
+    // X axis step pulse stop
+    PORTD &= ~_BV(PORTD2);
+    
     if (move_cmd.reverse)
     {
         // Reverse: 1023 .. 0
@@ -66,7 +66,7 @@ ISR(TIMER1_COMPA_vect)
         {
             timer1_stop();
             running = 0;
-	        return;
+            return;
         }
     }
     else
@@ -76,7 +76,7 @@ ISR(TIMER1_COMPA_vect)
         {
             timer1_stop();
             running = 0;
-	        return;
+            return;
         }
     }
         
@@ -86,8 +86,8 @@ ISR(TIMER1_COMPA_vect)
         uint16_t new_duration = pgm_read_byte(LOOKUP + (move_cmd.steps * 2) + 1) << 8;
         new_duration |= pgm_read_byte(LOOKUP + (move_cmd.steps * 2));
         
-    	OCR1A = new_duration;
-	    OCR1B = new_duration - 10;
+        OCR1A = new_duration;
+        OCR1B = new_duration - 10;
 
         return;
     }
@@ -102,7 +102,7 @@ ISR(TIMER1_COMPA_vect)
 ISR(TIMER1_COMPB_vect)
 {
     // Begin X axis step pulse
-	PORTD |= _BV(PORTD2);
+    PORTD |= _BV(PORTD2);
 }
 
 struct {
@@ -124,7 +124,7 @@ inline void setup()
 {
     timer1_init();
     timer2_init();
-	serial_init();
+    serial_init();
 
     // ------ output pins -------
     // Stepper enable (PB0) + Laser enable (PB3)
@@ -143,13 +143,13 @@ void flat_move(uint16_t rate, uint16_t steps)
     move_cmd.reverse = 0;
     move_cmd.steps = 0;
     move_cmd.total_steps = steps;
-	OCR1A = rate;
+    OCR1A = rate;
     OCR1B = rate - 10;
     running = 1;
     timer1_start();
-	while(running)
-	{
-	}
+    while(running)
+    {
+    }
 }
 
 void enable_laser_pwm()
@@ -160,13 +160,13 @@ void enable_laser_pwm()
 
 void disable_laser_pwm()
 {
-	timer2_stop();
-	
-	// Disable timer2 OC2A override on PORTB3 pin
-	TCCR2A &= ~(_BV(COM2A1) | _BV(COM2A0));
-	
-	// Ensure pin is driving low.
-	PORTB &= ~_BV(PORTB3);
+    timer2_stop();
+    
+    // Disable timer2 OC2A override on PORTB3 pin
+    TCCR2A &= ~(_BV(COM2A1) | _BV(COM2A0));
+    
+    // Ensure pin is driving low.
+    PORTB &= ~_BV(PORTB3);
 }
 
 /* A flat move WITH lasering */
@@ -175,7 +175,7 @@ void raster_move(uint16_t rate, uint16_t steps, uint16_t index, uint8_t reverse)
     move_cmd.mode = MOVE_RASTER;
     move_cmd.reverse = reverse;
     move_cmd.scanline_index = index;
-	OCR1A = rate;
+    OCR1A = rate;
     OCR1B = rate - 10;
     move_cmd.total_steps = steps;
     
@@ -195,10 +195,10 @@ void raster_move(uint16_t rate, uint16_t steps, uint16_t index, uint8_t reverse)
     timer1_start();
     timer2_start();
     
-	while(running)
-	{
-	}
-	disable_laser_pwm();	
+    while(running)
+    {
+    }
+    disable_laser_pwm();    
 }
 
 
@@ -222,45 +222,45 @@ void accel(uint16_t rate, uint8_t reverse, uint16_t pad_steps)
     }
     
     // Pad (if in reverse) to the required number of steps
-	if (reverse && table_entry < pad_steps) {
-	    flat_move(rate, pad_steps - table_entry);
-	}
+    if (reverse && table_entry < pad_steps) {
+        flat_move(rate, pad_steps - table_entry);
+    }
 
     // Prepare move_cmd for accelerated move
     move_cmd.mode = MOVE_FROM_TABLE;
     if (!reverse)
     {
         move_cmd.reverse = 0;
-    	move_cmd.steps = 0;
+        move_cmd.steps = 0;
         move_cmd.total_steps = table_entry + 1;
     } else {
         move_cmd.steps = table_entry;
         move_cmd.reverse = 1;
     }
 
-	OCR1A = step_delay;
+    OCR1A = step_delay;
     OCR1B = step_delay - 10;
 
     running = 1;
     timer1_start();
-	while(running)
-	{
-	}
-	
-	// Pad (if not in reverse) for the remaining number of steps
-	if (reverse == 0 && table_entry < pad_steps) {
-	    flat_move(rate, pad_steps - table_entry);
-	}
+    while(running)
+    {
+    }
+    
+    // Pad (if not in reverse) for the remaining number of steps
+    if (reverse == 0 && table_entry < pad_steps) {
+        flat_move(rate, pad_steps - table_entry);
+    }
 }
 
 void y_advance(uint8_t steps)
 {
     while (steps-- > 0)
     {
-	    PORTD |= _BV(PORTD3);
-	    delay(1);
-        PORTD &= ~_BV(PORTD3);        	    
-	    delay(1);
+        PORTD |= _BV(PORTD3);
+        delay(1);
+        PORTD &= ~_BV(PORTD3);                
+        delay(1);
     }
 }
 
@@ -290,15 +290,15 @@ inline void test()
     // Time to settle
     delay(100);
     
-	serial_send("$ rasterduino 0\r\n");
-	
-	// echo everything back
-	while (1)
-	{
-	    uint8_t data = serial_receive();
-	    serial_sendchar(data);
-	    delay(200);
-	}
+    serial_send("$ rasterduino 0\r\n");
+    
+    // echo everything back
+    while (1)
+    {
+        uint8_t data = serial_receive();
+        serial_sendchar(data);
+        delay(200);
+    }
 
     // Enable stepper motors
     stepper_enable();
@@ -306,38 +306,38 @@ inline void test()
     
     sei();
 
-	uint16_t velocity = 2500;
+    uint16_t velocity = 2500;
     uint16_t steps_per_line = 5;
     uint16_t lines = 20;
     
     // Positive Y direction
     PORTD |= _BV(PORTD6);
     
-	while (lines-- > 0)
-	{
-	        if (lines < 2 || lines > 17)
-	            vertical_line();
-	        else
-	            test_pattern();
-	
-		    // Set direction to 1 (rightwards)
-		    PORTD |= _BV(PORTD5);
-        	accel(velocity, 0, 1000); // speed up
-        	raster_move(velocity, 1024, 0, 0);
-        	accel(velocity, 1, 1000); // slow down
+    while (lines-- > 0)
+    {
+            if (lines < 2 || lines > 17)
+                vertical_line();
+            else
+                test_pattern();
+    
+            // Set direction to 1 (rightwards)
+            PORTD |= _BV(PORTD5);
+            accel(velocity, 0, 1000); // speed up
+            raster_move(velocity, 1024, 0, 0);
+            accel(velocity, 1, 1000); // slow down
 
-        	// step Y+
-        	y_advance(steps_per_line);
+            // step Y+
+            y_advance(steps_per_line);
 
-		    // Set direction to 0 (leftwards)
-		    PORTD &= ~_BV(PORTD5);
-        	accel(velocity, 0, 1000); // speed up
+            // Set direction to 0 (leftwards)
+            PORTD &= ~_BV(PORTD5);
+            accel(velocity, 0, 1000); // speed up
             raster_move(velocity, 1024, 0, 1);
-        	accel(velocity, 1, 1000); // slow down
+            accel(velocity, 1, 1000); // slow down
 
-        	// step Y+
-        	y_advance(steps_per_line);
-	}
+            // step Y+
+            y_advance(steps_per_line);
+    }
     cli();
 
     stepper_disable();
@@ -349,11 +349,11 @@ inline void main_loop()
 
 int main()
 {
-	setup();
-	test();
-	while (1) {
-		main_loop();
-	}
+    setup();
+    test();
+    while (1) {
+        main_loop();
+    }
 
-	return 0;
+    return 0;
 }
