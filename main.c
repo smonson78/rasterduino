@@ -288,7 +288,7 @@ void vertical_line()
 inline void test()
 {
     // Time to settle
-    delay(100);
+    delay(50);
     
     serial_send("$ rasterduino 0\r\n");
     
@@ -343,14 +343,22 @@ inline void test()
     stepper_disable();
 }
 
-inline void main_loop()
+int get_cmd()
 {
+    while (1)
+        ;
+}
+
+void main_loop()
+{
+    // Wait for a command
+    int command = get_cmd();
 }
 
 int main()
 {
     setup();
-    test();
+    serial_send("##");
     while (1) {
         main_loop();
     }

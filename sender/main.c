@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <libserialport.h>
 
 const char *serial_port = "/dev/ttyUSB0";
@@ -7,6 +8,31 @@ const char *serial_port = "/dev/ttyUSB0";
 typedef struct sp_port sp_port_t;
 typedef struct sp_port_config sp_port_config_t;
 typedef enum sp_return sp_return_t;
+
+// Wait up to 200ms for handshake sequence ##
+int handshake(sp_port_t *port)
+{
+    sp_return_t result;
+    uint8_t buf[2];
+    do
+    {
+        // Wait for # prefix
+        printf("Wait for prefix...\n");
+        result = sp_blocking_read(port, buf, 1, 200);
+        if (result == 0)
+            return 0;
+    } while (buf[0] != '#');
+    
+    // Now read second character
+    printf("Wait for command char...\n");
+    result = sp_blocking_read(port, buf, 1, 100);
+    if (result == 0)
+        return 0;
+    
+    if (buf[0] == '#')
+        return 1;
+    return 0;    
+}
 
 int main(int argc, char **argv)
 {
@@ -44,6 +70,21 @@ int main(int argc, char **argv)
 	}
 
     sp_free_config(conf);
+
+    // Wait for handshake
+    if (handshake(port) == 0)
+    {
+        printf("# Attempting handshake...\n");
+        sp_blocking_write(port, "##", 2, 0);
+        sp_drain(port);
+        if (handshake(port) == 0)
+        {
+            fprintf(stderr, "Didn't receive handshake.\n");
+            exit(4);
+        }
+    }
+
+    printf("# Got handshake.\n");
 
     while (1)
     {

@@ -39,20 +39,17 @@ void serial_init()
     tx_idle = 1;
     
 	// Enable interrupts
-	//UCSRB |= _BV(RXCIE) | _BV(TXCIE);
-	//UCSR0B |= _BV(RXCIE0) | _BV(TXCIE0) | _BV(UDRIE0);
 	UCSR0B |= _BV(RXCIE0) | _BV(UDRIE0);
 }
 
-void serial_sendchar(unsigned char data)
+void tx_char(unsigned char data)
 {
     // FIXME: we don't have to disable ALL interrupts...
-    // FIXME: overcomplicated interrupt stuff
-    cli();
     if (tx_idle)
     {
         // If there's no character already being sent
         tx_idle = 0;
+        cli();
         
         // Re-enable interrupt
         UCSR0B |= _BV(UDRIE0);
@@ -62,21 +59,19 @@ void serial_sendchar(unsigned char data)
         sei();
         return;
     }
-    
-    // Wait for buffer to have room. OK to spin on tx_len because it's 8 bits.
-    // FIXME: Don't do this, because it will keep interrupts disabled for ages.
-    //    while (tx_len == TXBUFFER)
-    //        ;
-    if (tx_len == TXBUFFER)
-    {
-        // Just drop the character if no room in buffer
-        sei();
-        return;
-    }
                 
     // Put data into buffer
+    cli();
     tx_buffer[(tx_ptr + tx_len++) % TXBUFFER] = data;
     sei();
+}
+
+void serial_sendchar(unsigned char data)
+{
+    // Wait for buffer to have room. OK to spin on tx_len because it's 8 bits.
+    while (tx_len == TXBUFFER)
+        ;
+    tx_char(data);
 }
 
 // Send a bunch of characters at once
