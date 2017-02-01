@@ -21,6 +21,8 @@ extern const uint8_t LOOKUP[] PROGMEM;
 
 uint8_t scanline[MAX_BUF];
 
+uint16_t image_x, image_y;
+
 // Digital 11 (Variable Spindle PWM) is PB3 (OC2A)
 // Digital 2 (Step Pulse X Axis) is PD2
 // Digital 3 (Step Pulse Y Axis) is PD3
@@ -136,6 +138,10 @@ inline void setup()
     // X and Y Axis step (PD2 and PD3) + X and Y axis direction (PD5 and PD6)
     //PORTD = 0b00000000;
     DDRD = _BV(PORTD2) | _BV(PORTD3) | _BV(PORTD5) | _BV(PORTD6);
+    
+    // Set sane defaults
+    image_x = 0;
+    image_y = 0;
 }
 
 /* A flat move with no lasering */
@@ -364,7 +370,12 @@ uint8_t serial_receive_timeout(uint8_t *buf, uint16_t timeout)
 typedef enum
 {
     CMD_UNKNOWN,
-    CMD_HANDSHAKE
+    CMD_HANDSHAKE,
+    CMD_IMAGEX,
+    CMD_IMAGEY,
+    CMD_SCALEX,
+    CMD_DEPTH,
+    CMD_START
 } cmd_t;
 
 cmd_t get_cmd()
@@ -381,6 +392,12 @@ cmd_t get_cmd()
         {
             case '#':
                 return CMD_HANDSHAKE;
+            case 'X':
+                return CMD_IMAGEX;
+            case 'Y':
+                return CMD_IMAGEY;
+            case '!':
+                return CMD_START;
             default:
                 return CMD_UNKNOWN;
         }
@@ -389,12 +406,6 @@ cmd_t get_cmd()
 
 void main_loop()
 {
-    // loopback while testing
-    while (1)
-    {
-        serial_sendchar(serial_receive());
-    }
-    
     // Wait for a command
     cmd_t command = get_cmd();
     
@@ -409,14 +420,13 @@ void main_loop()
             break;
         default:
             break;
-        
     }
 }
 
 int main()
 {
     setup();
-    //serial_send("##");
+
     while (1) {
         main_loop();
     }
