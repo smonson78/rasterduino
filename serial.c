@@ -84,7 +84,7 @@ void serial_send(char *s)
 }
 
 // Return character from RX buffer if available, otherwise return -1
-int16_t rx_getchar()
+int16_t serial_receive_nowait()
 {
     uint16_t data;
     cli();
@@ -102,11 +102,10 @@ int16_t rx_getchar()
 
 unsigned char serial_receive()
 {
-    int16_t data = rx_getchar();
+    int16_t data = serial_receive_nowait();
     while (data < 0)
     {
-        _delay_loop_2(F_CPU / 4000);
-        data = rx_getchar();
+        data = serial_receive_nowait();
     }
     return data;
 }

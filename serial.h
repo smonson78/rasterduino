@@ -15,5 +15,6 @@ void serial_init();
 void serial_sendchar(unsigned char data);
 void serial_send(char *s);
 unsigned char serial_receive();
+int16_t serial_receive_nowait();
 
 #endif

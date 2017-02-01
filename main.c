@@ -14,6 +14,8 @@
 #define LOOKUP _binary_lookup_bin_start
 #define LOOKUP_END _binary_lookup_bin_end
 
+#define DELAY_1MS do{_delay_loop_2(F_CPU/4000);}while(0)
+
 extern const uint8_t LOOKUP_END[] PROGMEM;
 extern const uint8_t LOOKUP[] PROGMEM;
 
@@ -49,7 +51,7 @@ void delay(int time)
    while (time--)
    {
        /* 1msec delay */
-       _delay_loop_2(F_CPU / 4000);
+       DELAY_1MS;
    }
 }
 
@@ -343,22 +345,78 @@ inline void test()
     stepper_disable();
 }
 
-int get_cmd()
+uint8_t serial_receive_timeout(uint8_t *buf, uint16_t timeout)
 {
+    for (; timeout > 0; timeout--)
+    {
+        int16_t result = serial_receive_nowait();
+        if (result >= 0)
+        {
+            *buf = result;
+            return 1;
+        }
+            
+        DELAY_1MS;
+    }
+    return 0;
+}
+
+typedef enum
+{
+    CMD_UNKNOWN,
+    CMD_HANDSHAKE
+} cmd_t;
+
+cmd_t get_cmd()
+{
+    uint8_t buf[8];
     while (1)
-        ;
+    {
+        buf[0] = serial_receive();
+        uint8_t result = serial_receive_timeout(buf + 1, 250);
+        if (result == 0)
+            continue;
+            
+        switch (buf[1])
+        {
+            case '#':
+                return CMD_HANDSHAKE;
+            default:
+                return CMD_UNKNOWN;
+        }
+    }
 }
 
 void main_loop()
 {
+    // loopback while testing
+    while (1)
+    {
+        serial_sendchar(serial_receive());
+    }
+    
     // Wait for a command
-    int command = get_cmd();
+    cmd_t command = get_cmd();
+    
+    // Process that command
+    switch (command)
+    {
+        case CMD_HANDSHAKE:
+            serial_send("##");
+            break;
+        case CMD_UNKNOWN:
+            serial_send("#?");
+            break;
+        default:
+            break;
+        
+    }
 }
 
 int main()
 {
     setup();
-    serial_send("##");
+    //serial_send("##");
     while (1) {
         main_loop();
     }
