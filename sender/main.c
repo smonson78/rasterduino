@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 #include <libserialport.h>
 
@@ -10,35 +11,91 @@ typedef struct sp_port sp_port_t;
 typedef struct sp_port_config sp_port_config_t;
 typedef enum sp_return sp_return_t;
 
-// Wait up to 200ms for handshake sequence ##
-int handshake(sp_port_t *port)
+sp_port_t *port;
+
+int get_response()
 {
     sp_return_t result;
-    uint8_t buf[2];
+    uint8_t buf;
     do
     {
         // Wait for # prefix
-        result = sp_blocking_read(port, buf, 1, 200);
+        result = sp_blocking_read(port, &buf, 1, 200);
         if (result == 0)
         {
             return 0;
         }
-    } while (buf[0] != '#');
+    } while (buf != '#');
     
     // Now read second character
-    result = sp_blocking_read(port, buf, 1, 100);
+    result = sp_blocking_read(port, &buf, 1, 100);
     if (result == 0)
         return 0;
     
-    if (buf[0] == '#')
-        return 1;
+    return buf;
+}
 
-    return 0;    
+// Wait up to 200ms for handshake sequence ##
+int handshake()
+{
+    sp_nonblocking_write(port, "##", 2);
+    sp_drain(port);
+
+    if (get_response() == '#')
+        return 1;
+    return 0;
+}
+
+void show_debug()
+{
+    while (1)
+    {
+        char buf[16];
+        int result = sp_blocking_read(port, buf, 1, 500);
+        if (result == 0)
+        {
+            break;
+        }
+        printf("%c", buf[0]);
+    }
+    printf("\n");
+}
+
+// The device should respond #Y or #N
+void wait_for_ok()
+{
+    int response = get_response();
+    if (response == 0)
+    {
+        fprintf(stderr, "No response from device.\n");
+        show_debug();
+        exit(5);
+    } 
+    else if (response == 'N')
+    {
+        fprintf(stderr, "Device reported error response.\n");
+        show_debug();
+        exit(5);
+    }
+    else if (response != 'Y')
+    {
+        printf("Unexpected device reponse: #%c\n", response);
+        show_debug();
+        exit(5);
+    }
+}
+
+void send_command(const char *command)
+{
+    printf("--> %s\n", command);
+    sp_nonblocking_write(port, command, strlen(command));
+    sp_drain(port);
+    wait_for_ok();
+    printf("    OK\n");
 }
 
 int main(int argc, char **argv)
 {
-	sp_port_t *port;
 	sp_return_t result = sp_get_port_by_name(serial_port, &port);
 
 	if (result != SP_OK)
@@ -89,20 +146,7 @@ int main(int argc, char **argv)
     // You have to wait an age for Arduinos to wake up
     usleep(2000000);
 
-    buf[0] = '#';
-    result = sp_nonblocking_write(port, buf, 1);
-    if (result != 1)
-        fprintf(stderr, "Error on write\n");
-        
-    result = sp_nonblocking_write(port, buf, 1);
-
-    if (result != 1)
-        fprintf(stderr, "Error on write\n");
-    sp_drain(port);
-    usleep(20000);
-
-
-    if (handshake(port) == 0)
+    if (handshake() == 0)
     {
         fprintf(stderr, "Didn't receive handshake.\n");
         exit(4);
@@ -110,7 +154,13 @@ int main(int argc, char **argv)
 
     printf("# Got handshake.\n");
 
-    while (1)
+    // Send image parameters
+    send_command("#X1000;");
+    send_command("#Y100;");
+
+    send_command("#!");
+
+    while (0)
     {
         char buf[16];
         sp_blocking_read(port, buf, 1, 0);

@@ -142,6 +142,8 @@ inline void setup()
     // Set sane defaults
     image_x = 0;
     image_y = 0;
+    
+    sei();
 }
 
 /* A flat move with no lasering */
@@ -295,19 +297,6 @@ void vertical_line()
 
 inline void test()
 {
-    // Time to settle
-    delay(50);
-    
-    serial_send("$ rasterduino 0\r\n");
-    
-    // echo everything back
-    while (1)
-    {
-        uint8_t data = serial_receive();
-        serial_sendchar(data);
-        delay(200);
-    }
-
     // Enable stepper motors
     stepper_enable();
     delay(100);
@@ -384,6 +373,9 @@ cmd_t get_cmd()
     while (1)
     {
         buf[0] = serial_receive();
+        if (buf[0] != '#')
+            continue;
+        
         uint8_t result = serial_receive_timeout(buf + 1, 250);
         if (result == 0)
             continue;
@@ -404,6 +396,102 @@ cmd_t get_cmd()
     }
 }
 
+void debug_send(uint16_t num)
+{
+    uint8_t buf[32];
+    serial_send("#?\n");
+    
+    serial_send("Debug: ");
+    
+    if (num == 0)
+    {
+        serial_sendchar('0');
+        return;
+    }
+    
+    int8_t i = 0;
+    while (num)
+    {
+        buf[i++] = num % 10;
+        num /= 10;
+    }
+    
+    while (1)
+    {
+        i--;
+        serial_sendchar('0' + buf[i]);
+        if (i == 0)
+            break;
+    }
+    
+    serial_sendchar('\n');
+}
+
+int16_t read_number_argument()
+{
+    uint8_t buffer[10];
+    uint8_t digit = 0;
+    
+    // Read digits
+    while (1)
+    {
+        uint8_t result = serial_receive_timeout(buffer + digit, 100);
+        if (result == 0)
+            return -1;
+        if (buffer[digit] == ';')
+            break;
+        if (buffer[digit] < '0' || buffer[digit] > '9')
+            return -1;
+        // 5-digit maximum
+        if (digit == 5)
+            return -1;
+        digit++;
+    }
+    
+    int16_t result = 0;
+    uint8_t i;
+    for (i = 0; i < digit; i++)
+    {
+        result *= 10;
+        result += buffer[i] - '0';
+    }
+    return result;
+}
+
+void begin_lasering()
+{
+    // Enable stepper motors
+    stepper_enable();
+    delay(100);
+    
+    uint16_t velocity = 650;
+    uint16_t steps_per_line = 5;
+    
+    // Positive Y direction
+    PORTD |= _BV(PORTD6);
+
+    uint16_t line;
+    for (line = 0; line < image_y; line++)
+    {
+        uint8_t reverse = line % 2;
+        
+        // Set direction (bit set for rightwards, bit clear for leftwards)
+        if (reverse)
+            PORTD &= ~_BV(PORTD5);
+        else
+            PORTD |= _BV(PORTD5);
+            
+        accel(velocity, 0, 1000); // speed up
+        raster_move(velocity, image_x, 0, reverse);
+        accel(velocity, 1, 1000); // slow down
+
+        // step Y+
+        y_advance(steps_per_line);
+    }
+
+    stepper_disable();
+}
+
 void main_loop()
 {
     // Wait for a command
@@ -415,10 +503,21 @@ void main_loop()
         case CMD_HANDSHAKE:
             serial_send("##");
             break;
-        case CMD_UNKNOWN:
-            serial_send("#?");
+        case CMD_IMAGEX:
+            image_x = read_number_argument();
+            serial_send("#Y");
             break;
+        case CMD_IMAGEY:
+            image_y = read_number_argument();
+            serial_send("#Y");
+            break;
+        case CMD_START:
+            serial_send("#Y");
+            begin_lasering();
+            break;
+        case CMD_UNKNOWN:
         default:
+            serial_send("#?");
             break;
     }
 }
