@@ -9,7 +9,7 @@
 #include "timer1.h"
 #include "timer2.h"
 
-#define MAX_BUF 1024
+#define MAX_BUF 1500
 
 #define LOOKUP _binary_lookup_bin_start
 #define LOOKUP_END _binary_lookup_bin_end
@@ -492,6 +492,7 @@ void begin_lasering()
         {
             // read bytes
             uint8_t pixel = serial_receive();
+            scanline[x] = pixel;
         }
 
         // step Y+

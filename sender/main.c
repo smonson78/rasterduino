@@ -216,7 +216,7 @@ int main(int argc, char **argv)
         printf("Raster line %d\n", i);
         
         /* Begin sending line data */    
-        uint8_t *data = FreeImage_GetScanLine(image, i);
+        uint8_t *data = FreeImage_GetScanLine(image, image_y - i - 1);
         int x;
         for (x = 0; x < image_x; x++)
         {
