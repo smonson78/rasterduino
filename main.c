@@ -485,6 +485,15 @@ void begin_lasering()
         raster_move(velocity, image_x, 0, reverse);
         accel(velocity, 1, 1000); // slow down
 
+        // Get next line of image data
+        serial_send("#D");
+        uint16_t x;
+        for (x = 0; x < image_x; x++)
+        {
+            // read bytes
+            uint8_t pixel = serial_receive();
+        }
+
         // step Y+
         y_advance(steps_per_line);
     }

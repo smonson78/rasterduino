@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -g
 LDFLAGS=
-LDLIBS=-lserialport
+LDLIBS=-lserialport -lfreeimage
 
 TARGET=raster
 

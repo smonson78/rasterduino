@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <libserialport.h>
+#include <FreeImage.h>
 
 const char *serial_port = "/dev/ttyUSB0";
 
@@ -11,16 +12,18 @@ typedef struct sp_port sp_port_t;
 typedef struct sp_port_config sp_port_config_t;
 typedef enum sp_return sp_return_t;
 
+uint16_t image_x, image_y;
+
 sp_port_t *port;
 
-int get_response()
+int get_response(int timeout)
 {
     sp_return_t result;
     uint8_t buf;
     do
     {
         // Wait for # prefix
-        result = sp_blocking_read(port, &buf, 1, 200);
+        result = sp_blocking_read(port, &buf, 1, timeout);
         if (result == 0)
         {
             return 0;
@@ -41,7 +44,7 @@ int handshake()
     sp_nonblocking_write(port, "##", 2);
     sp_drain(port);
 
-    if (get_response() == '#')
+    if (get_response(500) == '#')
         return 1;
     return 0;
 }
@@ -64,7 +67,7 @@ void show_debug()
 // The device should respond #Y or #N
 void wait_for_ok()
 {
-    int response = get_response();
+    int response = get_response(200);
     if (response == 0)
     {
         fprintf(stderr, "No response from device.\n");
@@ -96,6 +99,32 @@ void send_command(const char *command)
 
 int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        fprintf(stderr, "usage: %s imagefilename\n", argv[0]);
+        exit(1); 
+    }
+
+    printf("FreeImage version: %s\n", FreeImage_GetVersion());
+    
+    FREE_IMAGE_FORMAT fmt = FreeImage_GetFileType(argv[1], 0);
+    FIBITMAP *src_image = FreeImage_Load(fmt, argv[1], 0);
+    FIBITMAP *image = FreeImage_ConvertToGreyscale(src_image);
+    FreeImage_Unload(src_image);
+
+    
+    if (image == 0)
+    {
+        fprintf(stderr, "Couldn't load %s.\n", argv[1]);
+        exit(1);
+    }
+    
+    image_x = FreeImage_GetWidth(image);
+    image_y = FreeImage_GetHeight(image);
+
+    printf("Image dimensions: %dx%d\n",
+        image_x, image_y);
+    
 	sp_return_t result = sp_get_port_by_name(serial_port, &port);
 
 	if (result != SP_OK)
@@ -128,9 +157,8 @@ int main(int argc, char **argv)
 		exit(3);
 	}
 
-
     // wait for silence
-    uint8_t buf[1];
+    uint8_t buf[32];
     while (1)
     {
         sp_return_t result = sp_blocking_read(port, buf, 1, 250);
@@ -155,18 +183,50 @@ int main(int argc, char **argv)
     printf("# Got handshake.\n");
 
     // Send image parameters
-    send_command("#X1000;");
-    send_command("#Y100;");
+    sprintf((char *)buf, "#X%d;", image_x);
+    send_command((const char *)buf);
+    sprintf((char *)buf, "#Y%d;", image_y);
+    send_command((const char *)buf);
 
     send_command("#!");
 
-    while (0)
+    // Send image data line by line
+    int i;
+    for (i = 0; i < image_y; i++)
     {
-        char buf[16];
-        sp_blocking_read(port, buf, 1, 0);
-        printf("%c", buf[0]);
+        int response = get_response(0);
+        if (response == 0)
+        {
+            fprintf(stderr, "No response from device.\n");
+            show_debug();
+            exit(5);
+        } 
+        else if (response == 'N')
+        {
+            fprintf(stderr, "Device reported error response.\n");
+            show_debug();
+            exit(5);
+        }
+        else if (response != 'D')
+        {
+            fprintf(stderr, "Incorrect response (%c) from device.\n", response);
+            show_debug();
+            exit(5);
+        }
+        printf("Raster line %d\n", i);
+        
+        /* Begin sending line data */    
+        uint8_t *data = FreeImage_GetScanLine(image, i);
+        int x;
+        for (x = 0; x < image_x; x++)
+        {
+            uint8_t value = 255 - data[x];
+            sp_nonblocking_write(port, &value, 1);
+        }        
+    
     }
 
+    FreeImage_Unload(image);
 	sp_close(port);
     sp_free_config(conf);
 	sp_free_port(port);
