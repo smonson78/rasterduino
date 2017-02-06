@@ -111,7 +111,7 @@ int do_parameters(int argc, char **argv)
     ramp_steps = 1000;
     velocity = 500;
         
-    while ((c = getopt(argc, argv, "b:v:r:")) != -1)
+    while ((c = getopt(argc, argv, "b:v:r:s:")) != -1)
     {
         switch (c)
         {
