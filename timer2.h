@@ -11,9 +11,9 @@
 
 // Clock divider
 //#define TIMER2_CLK_DIV_1
-//#define TIMER2_CLK_DIV_8
+#define TIMER2_CLK_DIV_8
 //#define TIMER2_CLK_DIV_32
-#define TIMER2_CLK_DIV_64
+//#define TIMER2_CLK_DIV_64
 //#define TIMER2_CLK_DIV_128
 //#define TIMER2_CLK_DIV_256
 //#define TIMER2_CLK_DIV_1024

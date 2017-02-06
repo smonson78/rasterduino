@@ -13,6 +13,10 @@ typedef struct sp_port_config sp_port_config_t;
 typedef enum sp_return sp_return_t;
 
 uint16_t image_x, image_y;
+uint16_t y_steps_per_scanline;
+uint16_t backlash_compensation_steps;
+uint16_t ramp_steps;
+uint16_t velocity;
 
 sp_port_t *port;
 
@@ -97,38 +101,65 @@ void send_command(const char *command)
     printf("    OK\n");
 }
 
-void do_parameters(int argc, char **argv)
+int do_parameters(int argc, char **argv)
 {
     int c;
-    while (c = getopt(argc, argv, "") != -1)
+    
+    // Defaults
+    backlash_compensation_steps = 0;
+    y_steps_per_scanline = 5;
+    ramp_steps = 1000;
+    velocity = 500;
+        
+    while ((c = getopt(argc, argv, "b:v:r:")) != -1)
     {
         switch (c)
         {
+            case 'b':
+                backlash_compensation_steps = atoi(optarg);
+                break;
+            case 'v':
+                velocity = atoi(optarg);
+                break;
+            case 'r':
+                ramp_steps = atoi(optarg);
+                break;
+            case 's':
+                y_steps_per_scanline = atoi(optarg);
+                break;
         }
     }
+    
+    return optind;
 }
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
+    int lastopt = do_parameters(argc, argv);
+
+    if (argc == lastopt)
     {
-        fprintf(stderr, "usage: %s imagefilename\n", argv[0]);
+        fprintf(stderr, "\nusage: %s [options] imagefilename\n", argv[0]);
+        fprintf(stderr, "\n\t-b steps:\tBacklash compensation in steps\n");
+        fprintf(stderr, "\t-r steps:\tRamp up/down distance in steps\n");
+        fprintf(stderr, "\t-v steps:\tVelocity given as step time in 2MHz clocks\n");
+        fprintf(stderr, "\t-s steps:\tDistance between scanlines in steps\n");
+        fprintf(stderr, "\n");
         exit(1); 
     }
-    
-    do_parameters(argc, argv);
 
     printf("FreeImage version: %s\n", FreeImage_GetVersion());
     
-    FREE_IMAGE_FORMAT fmt = FreeImage_GetFileType(argv[1], 0);
-    FIBITMAP *src_image = FreeImage_Load(fmt, argv[1], 0);
+    const char *filename = argv[lastopt];
+    FREE_IMAGE_FORMAT fmt = FreeImage_GetFileType(filename, 0);
+    FIBITMAP *src_image = FreeImage_Load(fmt, filename, 0);
     FIBITMAP *image = FreeImage_ConvertToGreyscale(src_image);
     FreeImage_Unload(src_image);
 
     
     if (image == 0)
     {
-        fprintf(stderr, "Couldn't load %s.\n", argv[1]);
+        fprintf(stderr, "Couldn't load %s.\n", filename);
         exit(1);
     }
     
@@ -199,6 +230,14 @@ int main(int argc, char **argv)
     sprintf((char *)buf, "#X%d;", image_x);
     send_command((const char *)buf);
     sprintf((char *)buf, "#Y%d;", image_y);
+    send_command((const char *)buf);
+    sprintf((char *)buf, "#B%d;", backlash_compensation_steps);
+    send_command((const char *)buf);
+    sprintf((char *)buf, "#S%d;", y_steps_per_scanline);
+    send_command((const char *)buf);
+    sprintf((char *)buf, "#R%d;", ramp_steps);
+    send_command((const char *)buf);
+    sprintf((char *)buf, "#V%d;", velocity);
     send_command((const char *)buf);
 
     send_command("#!");
