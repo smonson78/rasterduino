@@ -97,6 +97,17 @@ void send_command(const char *command)
     printf("    OK\n");
 }
 
+void do_parameters(int argc, char **argv)
+{
+    int c;
+    while (c = getopt(argc, argv, "") != -1)
+    {
+        switch (c)
+        {
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -104,6 +115,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s imagefilename\n", argv[0]);
         exit(1); 
     }
+    
+    do_parameters(argc, argv);
 
     printf("FreeImage version: %s\n", FreeImage_GetVersion());
     
