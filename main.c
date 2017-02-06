@@ -22,6 +22,10 @@ extern const uint8_t LOOKUP[] PROGMEM;
 uint8_t scanline[MAX_BUF];
 
 uint16_t image_x, image_y;
+uint16_t y_steps_per_scanline;
+uint16_t backlash_comp;
+uint16_t ramp_steps;
+uint16_t velocity;
 
 // Digital 11 (Variable Spindle PWM) is PB3 (OC2A)
 // Digital 2 (Step Pulse X Axis) is PD2
@@ -47,6 +51,21 @@ volatile struct {
     
     uint16_t y_steps;
 } move_cmd;
+
+typedef enum
+{
+    CMD_UNKNOWN,
+    CMD_HANDSHAKE,
+    CMD_IMAGEX,
+    CMD_IMAGEY,
+    CMD_SCALEX,
+    CMD_RAMP,
+    CMD_YSTEPS,
+    CMD_BACKLASH,
+    CMD_DEPTH,
+    CMD_VELOCITY,
+    CMD_START
+} cmd_t;
 
 void delay(int time)
 {
@@ -295,51 +314,6 @@ void vertical_line()
     }
 }
 
-inline void test()
-{
-    // Enable stepper motors
-    stepper_enable();
-    delay(100);
-    
-    sei();
-
-    uint16_t velocity = 2500;
-    uint16_t steps_per_line = 5;
-    uint16_t lines = 20;
-    
-    // Positive Y direction
-    PORTD |= _BV(PORTD6);
-    
-    while (lines-- > 0)
-    {
-            if (lines < 2 || lines > 17)
-                vertical_line();
-            else
-                test_pattern();
-    
-            // Set direction to 1 (rightwards)
-            PORTD |= _BV(PORTD5);
-            accel(velocity, 0, 1000); // speed up
-            raster_move(velocity, 1024, 0, 0);
-            accel(velocity, 1, 1000); // slow down
-
-            // step Y+
-            y_advance(steps_per_line);
-
-            // Set direction to 0 (leftwards)
-            PORTD &= ~_BV(PORTD5);
-            accel(velocity, 0, 1000); // speed up
-            raster_move(velocity, 1024, 0, 1);
-            accel(velocity, 1, 1000); // slow down
-
-            // step Y+
-            y_advance(steps_per_line);
-    }
-    cli();
-
-    stepper_disable();
-}
-
 uint8_t serial_receive_timeout(uint8_t *buf, uint16_t timeout)
 {
     for (; timeout > 0; timeout--)
@@ -355,17 +329,6 @@ uint8_t serial_receive_timeout(uint8_t *buf, uint16_t timeout)
     }
     return 0;
 }
-
-typedef enum
-{
-    CMD_UNKNOWN,
-    CMD_HANDSHAKE,
-    CMD_IMAGEX,
-    CMD_IMAGEY,
-    CMD_SCALEX,
-    CMD_DEPTH,
-    CMD_START
-} cmd_t;
 
 cmd_t get_cmd()
 {
@@ -388,6 +351,14 @@ cmd_t get_cmd()
                 return CMD_IMAGEX;
             case 'Y':
                 return CMD_IMAGEY;
+            case 'B':
+                return CMD_BACKLASH;
+            case 'S':
+                return CMD_YSTEPS;
+            case 'R':
+                return CMD_RAMP;
+            case 'V':
+                return CMD_VELOCITY;
             case '!':
                 return CMD_START;
             default:
@@ -464,9 +435,6 @@ void begin_lasering()
     stepper_enable();
     delay(100);
     
-    uint16_t velocity = 650;
-    uint16_t steps_per_line = 5;
-    
     // Positive Y direction
     PORTD |= _BV(PORTD6);
 
@@ -481,9 +449,9 @@ void begin_lasering()
         else
             PORTD |= _BV(PORTD5);
             
-        accel(velocity, 0, 1000); // speed up
+        accel(velocity, 0, ramp_steps); // speed up
         raster_move(velocity, image_x, 0, reverse);
-        accel(velocity, 1, 1000); // slow down
+        accel(velocity, 1, ramp_steps); // slow down
 
         // Get next line of image data
         serial_send("#D");
@@ -496,7 +464,7 @@ void begin_lasering()
         }
 
         // step Y+
-        y_advance(steps_per_line);
+        y_advance(y_steps_per_scanline);
     }
 
     stepper_disable();
@@ -521,6 +489,22 @@ void main_loop()
             image_y = read_number_argument();
             serial_send("#Y");
             break;
+        case CMD_BACKLASH:
+            backlash_comp = read_number_argument();
+            serial_send("#Y");
+            break;
+        case CMD_YSTEPS:
+            y_steps_per_scanline = read_number_argument();
+            serial_send("#Y");
+            break;
+        case CMD_RAMP:
+            ramp_steps = read_number_argument();
+            serial_send("#Y");
+            break;
+        case CMD_VELOCITY:
+            velocity = read_number_argument();
+            serial_send("#Y");
+            break;
         case CMD_START:
             serial_send("#Y");
             begin_lasering();
@@ -535,7 +519,13 @@ void main_loop()
 int main()
 {
     setup();
-
+    
+    // Defaults
+    y_steps_per_scanline = 5;
+    backlash_comp = 0;
+    ramp_steps = 1000;
+    velocity = 1000;
+    
     while (1) {
         main_loop();
     }
