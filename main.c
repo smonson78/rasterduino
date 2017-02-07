@@ -21,7 +21,7 @@ extern const uint8_t LOOKUP[] PROGMEM;
 
 uint8_t scanline[MAX_BUF];
 
-uint16_t image_x, image_y;
+uint16_t image_x, image_y, pixels;
 uint16_t y_steps_per_scanline;
 uint16_t backlash_comp;
 uint16_t ramp_steps;
@@ -46,6 +46,8 @@ volatile struct {
     uint16_t total_steps;
 
     // the ratio steps:total_steps matches x:pixels (where scanline[x] is PWM value)
+    // FIXME: badly named. image_x and pixels should basically swap names,
+    // as currently pixels is the size of the image and image_x is the distance the head travels.
     uint16_t pixels;
     uint16_t scanline_index;
     
@@ -57,6 +59,7 @@ typedef enum
     CMD_UNKNOWN,
     CMD_HANDSHAKE,
     CMD_IMAGEX,
+    CMD_PIXELS,
     CMD_IMAGEY,
     CMD_SCALEX,
     CMD_RAMP,
@@ -118,7 +121,11 @@ ISR(TIMER1_COMPA_vect)
     // Raster moves: control PWM value
     else if (move_cmd.mode == MOVE_RASTER)
     {
-        OCR2A = scanline[move_cmd.scanline_index + move_cmd.steps];  
+        // Scale the step number to map it into the range of the scanline.
+        uint32_t offset = move_cmd.steps * move_cmd.pixels;
+        offset /= move_cmd.total_steps;
+        
+        OCR2A = scanline[move_cmd.scanline_index + (uint16_t)offset];  
     }
 }
 
@@ -207,6 +214,7 @@ void raster_move(uint16_t rate, uint16_t steps, uint16_t index, uint8_t reverse)
     OCR1A = rate;
     OCR1B = rate - 10;
     move_cmd.total_steps = steps;
+    move_cmd.pixels = pixels;
     
     // First pixel PWM value and step counter
     if (reverse)
@@ -349,6 +357,8 @@ cmd_t get_cmd()
                 return CMD_HANDSHAKE;
             case 'X':
                 return CMD_IMAGEX;
+            case 'P':
+                return CMD_PIXELS;
             case 'Y':
                 return CMD_IMAGEY;
             case 'B':
@@ -443,16 +453,6 @@ void begin_lasering()
     {
         uint8_t reverse = line % 2;
         
-        // Set direction (bit set for rightwards, bit clear for leftwards)
-        if (reverse)
-            PORTD &= ~_BV(PORTD5);
-        else
-            PORTD |= _BV(PORTD5);
-            
-        accel(velocity, 0, ramp_steps); // speed up
-        raster_move(velocity, image_x, 0, reverse);
-        accel(velocity, 1, ramp_steps); // slow down
-
         // Get next line of image data
         serial_send("#D");
         uint16_t x;
@@ -462,6 +462,16 @@ void begin_lasering()
             uint8_t pixel = serial_receive();
             scanline[x] = pixel;
         }
+      
+        // Set direction (bit set for rightwards, bit clear for leftwards)
+        if (reverse)
+            PORTD &= ~_BV(PORTD5);
+        else
+            PORTD |= _BV(PORTD5);
+            
+        accel(velocity, 0, ramp_steps); // speed up
+        raster_move(velocity, image_x, 0, reverse);
+        accel(velocity, 1, ramp_steps); // slow down
 
         // step Y+
         y_advance(y_steps_per_scanline);
@@ -483,6 +493,10 @@ void main_loop()
             break;
         case CMD_IMAGEX:
             image_x = read_number_argument();
+            serial_send("#Y");
+            break;
+        case CMD_PIXELS:
+            pixels = read_number_argument();
             serial_send("#Y");
             break;
         case CMD_IMAGEY:
@@ -525,6 +539,9 @@ int main()
     backlash_comp = 0;
     ramp_steps = 1000;
     velocity = 1000;
+    pixels = 0;
+    image_x = 0;
+    image_y = 0;
     
     while (1) {
         main_loop();
