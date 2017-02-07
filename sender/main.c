@@ -234,7 +234,8 @@ int main(int argc, char **argv)
     printf("# Got handshake.\n");
 
     // Send image parameters
-    sprintf((char *)buf, "#X%d;", image_x);
+    // FIXME: swap image_x and pixels
+    sprintf((char *)buf, "#P%d;", image_x);
     send_command((const char *)buf);
     sprintf((char *)buf, "#Y%d;", image_y);
     send_command((const char *)buf);
@@ -248,9 +249,9 @@ int main(int argc, char **argv)
     send_command((const char *)buf);
     
     if (final_width == -1)
-        sprintf((char *)buf, "#P%d;", image_x);        
+        sprintf((char *)buf, "#X%d;", image_x);        
     else
-        sprintf((char *)buf, "#P%d;", final_width);
+        sprintf((char *)buf, "#X%d;", final_width);
     send_command((const char *)buf);
         
     send_command("#!");

@@ -122,7 +122,8 @@ ISR(TIMER1_COMPA_vect)
     else if (move_cmd.mode == MOVE_RASTER)
     {
         // Scale the step number to map it into the range of the scanline.
-        uint32_t offset = move_cmd.steps * move_cmd.pixels;
+        uint32_t offset = move_cmd.steps;
+        offset *= move_cmd.pixels;
         offset /= move_cmd.total_steps;
         
         OCR2A = scanline[move_cmd.scanline_index + (uint16_t)offset];  
@@ -456,7 +457,7 @@ void begin_lasering()
         // Get next line of image data
         serial_send("#D");
         uint16_t x;
-        for (x = 0; x < image_x; x++)
+        for (x = 0; x < pixels; x++)
         {
             // read bytes
             uint8_t pixel = serial_receive();
