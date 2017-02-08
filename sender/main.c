@@ -17,6 +17,7 @@ uint16_t y_steps_per_scanline;
 uint16_t backlash_compensation_steps;
 uint16_t ramp_steps;
 uint16_t velocity;
+int final_width;
 
 sp_port_t *port;
 
@@ -110,8 +111,9 @@ int do_parameters(int argc, char **argv)
     y_steps_per_scanline = 5;
     ramp_steps = 1000;
     velocity = 500;
+    final_width = -1;
         
-    while ((c = getopt(argc, argv, "b:v:r:s:")) != -1)
+    while ((c = getopt(argc, argv, "b:v:r:s:w:")) != -1)
     {
         switch (c)
         {
@@ -126,6 +128,9 @@ int do_parameters(int argc, char **argv)
                 break;
             case 's':
                 y_steps_per_scanline = atoi(optarg);
+                break;
+            case 'w':
+                final_width = atoi(optarg);
                 break;
         }
     }
@@ -144,7 +149,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "\t-r steps:\tRamp up/down distance in steps\n");
         fprintf(stderr, "\t-v steps:\tVelocity given as step time in 2MHz clocks\n");
         fprintf(stderr, "\t-s steps:\tDistance between scanlines in steps\n");
+        fprintf(stderr, "\t-w steps:\tWidth of the scaled image in steps\n");
         fprintf(stderr, "\n");
+        
         exit(1); 
     }
 
@@ -227,7 +234,8 @@ int main(int argc, char **argv)
     printf("# Got handshake.\n");
 
     // Send image parameters
-    sprintf((char *)buf, "#X%d;", image_x);
+    // FIXME: swap image_x and pixels
+    sprintf((char *)buf, "#P%d;", image_x);
     send_command((const char *)buf);
     sprintf((char *)buf, "#Y%d;", image_y);
     send_command((const char *)buf);
@@ -239,7 +247,13 @@ int main(int argc, char **argv)
     send_command((const char *)buf);
     sprintf((char *)buf, "#V%d;", velocity);
     send_command((const char *)buf);
-
+    
+    if (final_width == -1)
+        sprintf((char *)buf, "#X%d;", image_x);        
+    else
+        sprintf((char *)buf, "#X%d;", final_width);
+    send_command((const char *)buf);
+        
     send_command("#!");
 
     // Send image data line by line
